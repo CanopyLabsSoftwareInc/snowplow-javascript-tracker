@@ -79,6 +79,7 @@
 	 * 16. bufferSize, 1
 	 * 17. crossDomainLinker, false
 	 * 18. maxPostBytes, 40000
+     * 19. customDomainUserId, false
 	 */
 	object.Tracker = function Tracker(functionName, namespace, version, mutSnowplowState, argmap) {
 
@@ -167,6 +168,9 @@
 
 			// Default hash seed for MurmurHash3 in detectors.detectSignature
 			configUserFingerprintHashSeed = argmap.hasOwnProperty('userFingerprintSeed') ? argmap.userFingerprintSeed : 123412414,
+
+            // Whether to use custom Domain user ID
+            configCustomDomainUserId = argmap.hasOwnProperty('customDomainUserId') ? argmap.customDomainUserId : false,
 
 			// Document character set
 			documentCharset = documentAlias.characterSet || documentAlias.charset,
@@ -546,14 +550,30 @@
 		 */
 		function initializeDomainUserId() {
 			var idCookieValue;
+            var duidFromLocation;
 			if (configUseCookies) {
 				idCookieValue = getSnowplowCookieValue('id');
 			}
-			if (idCookieValue) {
+
+            if (idCookieValue) {
 				domainUserId = idCookieValue.split('.')[0];
 			} else {
 				generateNewDomainUserId();
 			}
+
+            if (configCustomDomainUserId) {
+                // just overwrite whatever was generated/exists
+                duidFromLocation = helpers.fromQuerystring('_sp', locationHrefAlias);
+                if (duidFromLocation) {
+                    domainUserId = duidFromLocation.split('.')[0];
+
+                    if (configUseCookies && configWriteCookies) {
+                        var nowTs = Math.round(new Date().getTime() / 1000);
+                        setDomainUserIdCookie(domainUserId, nowTs, 0, nowTs, nowTs);
+                    }
+                }
+            }
+
 			if (configUseCookies && configWriteCookies) {
 				if (!getSnowplowCookieValue('ses')) {
 					var idCookie = loadDomainUserIdCookie();
