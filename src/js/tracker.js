@@ -82,6 +82,7 @@
 	 * 16. bufferSize, 1
 	 * 17. crossDomainLinker, false
 	 * 18. maxPostBytes, 40000
+	 * 19. customDomainUserId, false
 	 */
 	object.Tracker = function Tracker(functionName, namespace, version, pageViewId, mutSnowplowState, argmap) {
 
@@ -183,6 +184,9 @@
 
 			// Whether to use cookies
 			configUseCookies = argmap.hasOwnProperty('useCookies') ? argmap.useCookies : true,
+
+			// Whether to use a custom Domain User Id
+			configCustomDomainUserId = argmap.hasOwnProperty('customDomainUserId') ? argmap.customDomainUserId : false,
 
 			// Browser language (or Windows language for IE). Imperfect but CloudFront doesn't log the Accept-Language header
 			browserLanguage = navigatorAlias.userLanguage || navigatorAlias.language,
@@ -557,12 +561,21 @@
 		function initializeIdsAndCookies() {
 			var sesCookieSet = configUseCookies && !!getSnowplowCookieValue('ses');
 			var idCookieComponents = loadDomainUserIdCookie();
+			var duidFromLocation;
 
 			if (idCookieComponents[1]) {
 				domainUserId = idCookieComponents[1];
 			} else {
 				domainUserId = createNewDomainUserId();
 				idCookieComponents[1] = domainUserId;
+			}
+
+			if (configCustomDomainUserId) {
+				duidFromLocation = helpers.fromQuerystring('_sp', locationHrefAlias);
+				if (duidFromLocation) {
+					domainUserId = duidFromLocation.split('.')[0];
+					idCookieComponents[1] = domainUserId;
+				}
 			}
 
 			memorizedSessionId = idCookieComponents[6];
